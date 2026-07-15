@@ -63,18 +63,8 @@ stays irrelevant because those endpoints are never called.
 ## Build
 
 CI builds and pushes `ghcr.io/ki4jlu/speaches-diarization:latest` on every
-push to `main` (native arm64 runner).
-
-Manually on the target host (build args only needed behind a proxy):
-
-```sh
-git clone https://github.com/KI4JLU/speaches-diarization.git
-cd speaches-diarization
-sudo docker build \
-  --build-arg http_proxy=$HTTP_PROXY_URL \
-  --build-arg https_proxy=$HTTP_PROXY_URL \
-  -t speaches-diarization:local .
-```
+push to `main` (native arm64 runner, `.github/workflows/build.yml`). Target
+hosts only pull the image — no on-host builds.
 
 ## Deploy
 

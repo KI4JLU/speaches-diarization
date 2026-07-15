@@ -10,15 +10,8 @@
 
 services:
   speaches-diarization:
+    # Built by CI (GitHub Actions, native arm64 runner) — hosts only pull.
     image: ghcr.io/ki4jlu/speaches-diarization:latest
-    # To build on the host instead of pulling (proxy needed at build time):
-    # build:
-    #   context: https://github.com/KI4JLU/speaches-diarization.git
-    #   args:
-    #     HTTP_PROXY: ${HTTP_PROXY_URL:-}
-    #     HTTPS_PROXY: ${HTTP_PROXY_URL:-}
-    #     http_proxy: ${HTTP_PROXY_URL:-}
-    #     https_proxy: ${HTTP_PROXY_URL:-}
     container_name: speaches-diarization
     restart: unless-stopped
     ports:

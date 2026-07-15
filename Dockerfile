@@ -23,8 +23,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl ffmpeg git
+    apt-get -o Acquire::Retries=5 -o Acquire::Retries::Delay=true update && \
+    DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl ffmpeg git
 
 # Non-root user, same convention as upstream (uid 1000 = default ubuntu user).
 RUN useradd --create-home --shell /bin/bash --uid 1000 ubuntu || true

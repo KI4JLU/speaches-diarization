@@ -36,6 +36,7 @@ works against both without changes.
 |---|---|---|
 | `0001-serialize-diarization-jobs.patch` | Global semaphore around the diarization run, size from `DIARIZATION_MAX_CONCURRENCY` (default `1`) | A whole-file pyannote run occupies the GPU continuously for minutes and competes with realtime STT decode on unified memory. Interim requirement while the realtime model shares the box: one job at a time. Excess requests queue (client timeouts already budget for this). |
 | `0002-speaker-count-constraints.patch` | Adds optional `num_speakers` / `min_speakers` / `max_speakers` form fields, passed through to the pyannote pipeline | HAWKI already sends `num_speakers=1` or `min_speakers=2`; upstream (and the current production worker!) silently ignore these fields — the UI speaker-count choice had no server-side effect. pyannote supports the kwargs natively. |
+| `0003-fix-known-speaker-embedding-pyannote4.patch` | Calls the pipeline's embedding wrapper directly instead of wrapping it in `Inference()` | Upstream's `Inference(pipeline._embedding)` crashes with pyannote.audio 4.x (`AttributeError: ... has no attribute 'eval'`); the exception is swallowed and known-speaker matching silently falls back to `SPEAKER_XX` labels — verified broken on the production worker too. With the fix, `known_speaker_names[]`/`known_speaker_references[]` actually return the given names. |
 
 Both endpoints HAWKI uses are preserved unchanged otherwise:
 

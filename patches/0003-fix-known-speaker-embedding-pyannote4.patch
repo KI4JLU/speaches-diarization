@@ -1,0 +1,55 @@
+diff --git a/src/speaches/routers/diarization.py b/src/speaches/routers/diarization.py
+index ab3b0a6..27cd936 100644
+--- a/src/speaches/routers/diarization.py
++++ b/src/speaches/routers/diarization.py
+@@ -56,18 +56,29 @@ def _map_to_known_speakers(
+     diarization: DiarizeOutput,
+     known_speakers: list[KnownSpeaker],
+ ) -> dict[Hashable, str]:
+-    from pyannote.audio import Inference
+-
+-    inference = Inference(pipeline._embedding, window="whole")  # noqa: SLF001
+-    main_audio = {"waveform": waveform, "sample_rate": sample_rate}
++    # In pyannote.audio 4.x, pipeline._embedding is a PretrainedSpeakerEmbedding
++    # wrapper (callable with batched waveforms), not a Model. Wrapping it in
++    # Inference() crashes with AttributeError ('... has no attribute eval'), which
++    # made known-speaker matching silently fall back to SPEAKER_XX labels. Call
++    # the wrapper directly instead.
++    embedding_model = pipeline._embedding  # noqa: SLF001
++    min_num_samples = int(getattr(embedding_model, "min_num_samples", 0) or 0)
++
++    def embed(segment_waveform: torch.Tensor) -> np.ndarray | None:
++        if segment_waveform.shape[1] <= min_num_samples:
++            return None
++        emb = np.asarray(embedding_model(segment_waveform.unsqueeze(0)))[0]
++        if np.isnan(emb).any():
++            return None
++        return emb
+ 
+     # Compute embeddings for reference speakers
+     known_embeddings: dict[str, np.ndarray] = {}
+     for ks in known_speakers:
+         ref_waveform = torch.from_numpy(ks.audio.data).unsqueeze(0).float()
+-        known_embeddings[ks.name] = np.asarray(
+-            inference({"waveform": ref_waveform, "sample_rate": ks.audio.sample_rate})
+-        )
++        ref_emb = embed(ref_waveform)
++        if ref_emb is not None:
++            known_embeddings[ks.name] = ref_emb
+ 
+     # Collect embeddings per diarized speaker across all their turns
+     speaker_embeddings: dict[str, list[np.ndarray]] = {}
+@@ -75,8 +86,11 @@ def _map_to_known_speakers(
+     speaker_track_gen = cast("Iterator[tuple[Segment, TrackName, Hashable]]", speaker_track_gen)
+     for turn, _, speaker in speaker_track_gen:
+         try:
+-            emb = np.asarray(inference.crop(main_audio, turn))
+-            speaker_embeddings.setdefault(speaker, []).append(emb)  # pyrefly: ignore[no-matching-overload]
++            start = int(turn.start * sample_rate)
++            end = min(int(turn.end * sample_rate), waveform.shape[1])
++            emb = embed(waveform[:, start:end])
++            if emb is not None:
++                speaker_embeddings.setdefault(speaker, []).append(emb)
+         except Exception:
+             logger.exception(f"Failed to extract embedding for speaker {speaker} turn {turn}")
+ 

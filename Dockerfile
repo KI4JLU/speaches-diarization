@@ -52,9 +52,11 @@ RUN git init -q . && \
 # Local patches (see patches/*.patch for rationale):
 #   0001: serialize diarization runs (DIARIZATION_MAX_CONCURRENCY, default 1)
 #   0002: pass num_speakers/min_speakers/max_speakers through to pyannote
+#   0003: fix known-speaker embedding matching under pyannote.audio 4.x
 COPY --chown=ubuntu patches/ /tmp/patches/
 RUN git apply --stat --apply /tmp/patches/0001-serialize-diarization-jobs.patch \
-                             /tmp/patches/0002-speaker-count-constraints.patch
+                             /tmp/patches/0002-speaker-count-constraints.patch \
+                             /tmp/patches/0003-fix-known-speaker-embedding-pyannote4.patch
 
 # Dependencies exactly as locked upstream (torch 2.8.0 + pyannote-audio 4.0.4).
 RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \

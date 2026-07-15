@@ -56,10 +56,18 @@ COPY --chown=ubuntu patches/ /tmp/patches/
 RUN git apply --stat --apply /tmp/patches/0001-serialize-diarization-jobs.patch \
                              /tmp/patches/0002-speaker-count-constraints.patch
 
-# Dependencies exactly as locked upstream (torch 2.8.0 + pyannote-audio 4.0.4;
-# the PyPI aarch64 torch wheels bundle CUDA 12.8 sbsa runtime libraries).
+# Dependencies exactly as locked upstream (torch 2.8.0 + pyannote-audio 4.0.4).
 RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
     uv sync --frozen --compile-bytecode --no-dev
+
+# The upstream lockfile resolves the CPU-only torch build on aarch64
+# (verified in the built image: torch reports "2.8.0+cpu", CUDA unavailable).
+# Swap torch/torchaudio for the CUDA sbsa wheels — same version, cu129 build,
+# which supports Blackwell/GB10 (sm_121).
+RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
+    uv pip install --python $HOME/speaches/.venv/bin/python \
+      --index-url https://download.pytorch.org/whl/cu129 \
+      "torch==2.8.0+cu129" "torchaudio==2.8.0+cu129"
 
 # Pre-create the HF cache dir so a root-owned volume mount doesn't break writes.
 RUN mkdir -p $HOME/.cache/huggingface/hub

@@ -18,7 +18,7 @@ exist there.
 pyannote itself runs fine on the GB10 — torch ships CUDA sbsa wheels, and vLLM
 proves the platform daily on the same box. So this repo builds Speaches from
 source at a **pinned upstream commit** with the full dependency lockfile
-(torch 2.8.0 + pyannote-audio 4.0.4) and adds two small patches.
+(torch 2.8.0 + pyannote-audio 4.0.4), swaps in the CUDA sbsa torch build (the lockfile resolves CPU-only torch on aarch64 — likely why upstream never shipped a working arm64 CUDA image), and adds two small patches.
 
 ### Pinned commit
 

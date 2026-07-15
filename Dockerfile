@@ -19,12 +19,21 @@ LABEL org.opencontainers.image.source="https://github.com/KI4JLU/speaches-diariz
 LABEL org.opencontainers.image.description="Speaches (pinned commit) with pyannote diarization for aarch64/GB10 — diarization-only deployment"
 LABEL org.opencontainers.image.licenses="MIT"
 
-# ffmpeg: audio decoding for uploaded files; git: fetching the pinned source.
+# ffmpeg: audio decoding for uploaded files (speaches shells out to the
+# binary); git: fetching the pinned source.
+# apt via HTTPS + retry loop: GitHub's arm64 runners intermittently cannot
+# reach ports.ubuntu.com on port 80 (Azure egress), which failed two CI runs.
 # hadolint ignore=DL3008
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    apt-get -o Acquire::Retries=5 -o Acquire::Retries::Delay=true update && \
-    DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=5 install -y --no-install-recommends ca-certificates curl ffmpeg git
+    sed -i 's|http://ports.ubuntu.com|https://ports.ubuntu.com|g; s|http://archive.ubuntu.com|https://archive.ubuntu.com|g; s|http://security.ubuntu.com|https://security.ubuntu.com|g' \
+        /etc/apt/sources.list.d/ubuntu.sources /etc/apt/sources.list 2>/dev/null; \
+    for attempt in 1 2 3 4 5; do \
+        apt-get -o Acquire::Retries=3 update && \
+        DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 install -y --no-install-recommends ca-certificates curl ffmpeg git && break; \
+        echo "apt attempt ${attempt} failed, retrying in 20s"; sleep 20; \
+        [ "${attempt}" = "5" ] && exit 1; \
+    done
 
 # Non-root user, same convention as upstream (uid 1000 = default ubuntu user).
 RUN useradd --create-home --shell /bin/bash --uid 1000 ubuntu || true

@@ -1,0 +1,33 @@
+diff --git a/src/speaches/routers/diarization.py b/src/speaches/routers/diarization.py
+index 5c49ba5..ab3b0a6 100644
+--- a/src/speaches/routers/diarization.py
++++ b/src/speaches/routers/diarization.py
+@@ -120,6 +120,9 @@ def diarize_audio(
+     known_speaker_names: Annotated[list[str] | None, Form(alias="known_speaker_names[]")] = None,
+     known_speaker_references: Annotated[list[str] | None, Form(alias="known_speaker_references[]")] = None,
+     response_format: Annotated[Literal["json", "rttm"] | None, Form()] = "json",
++    num_speakers: Annotated[int | None, Form(ge=1)] = None,
++    min_speakers: Annotated[int | None, Form(ge=1)] = None,
++    max_speakers: Annotated[int | None, Form(ge=1)] = None,
+ ) -> Response:
+     known_speakers: list[KnownSpeaker] | None = None
+     if known_speaker_names and known_speaker_references:
+@@ -134,9 +137,17 @@ def diarize_audio(
+     model_card_data = get_model_card_data_or_raise(model)
+     executor = find_executor_for_model_or_raise(model, model_card_data, executor_registry.diarization)
+ 
++    speaker_count_kwargs: dict[str, int] = {}
++    if num_speakers is not None:
++        speaker_count_kwargs["num_speakers"] = num_speakers
++    if min_speakers is not None:
++        speaker_count_kwargs["min_speakers"] = min_speakers
++    if max_speakers is not None:
++        speaker_count_kwargs["max_speakers"] = max_speakers
++
+     with _diarization_semaphore, executor.model_manager.load_model(model) as pipeline:
+         waveform = torch.from_numpy(audio.data).unsqueeze(0).float()
+-        diarization = pipeline({"waveform": waveform, "sample_rate": audio.sample_rate})
++        diarization = pipeline({"waveform": waveform, "sample_rate": audio.sample_rate}, **speaker_count_kwargs)
+         assert isinstance(diarization, DiarizeOutput), f"Expected DiarizeOutput, got {type(diarization)}"
+ 
+         speaker_mapping: dict[Hashable, str] | None = None

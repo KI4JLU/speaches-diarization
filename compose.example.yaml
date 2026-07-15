@@ -1,0 +1,53 @@
+# Reference service block — merge into the STT host's docker-compose.yml
+# next to the existing vLLM services. Not meant to be run standalone.
+#
+# Site-specific values (proxy URL, API keys, HF token) come from the host's
+# .env file next to the compose file:
+#   HF_TOKEN=hf_...                 # gated repo: pyannote/speaker-diarization-community-1
+#   DIARIZATION_API_KEY=...         # HAWKI sends this as Bearer token (optional but recommended)
+#   HTTP_PROXY_URL=http://...:3128  # only on proxied hosts; leave empty otherwise
+#   NO_PROXY_LIST=localhost,127.0.0.1,...
+
+services:
+  speaches-diarization:
+    image: ghcr.io/ki4jlu/speaches-diarization:latest
+    # To build on the host instead of pulling (proxy needed at build time):
+    # build:
+    #   context: https://github.com/KI4JLU/speaches-diarization.git
+    #   args:
+    #     HTTP_PROXY: ${HTTP_PROXY_URL:-}
+    #     HTTPS_PROXY: ${HTTP_PROXY_URL:-}
+    #     http_proxy: ${HTTP_PROXY_URL:-}
+    #     https_proxy: ${HTTP_PROXY_URL:-}
+    container_name: speaches-diarization
+    restart: unless-stopped
+    ports:
+      - "8003:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN}
+      API_KEY: ${DIARIZATION_API_KEY}
+      # Baked into the image, listed here for visibility:
+      ENABLE_UI: "false"
+      PRELOAD_MODELS: '["pyannote/speaker-diarization-community-1"]'
+      # On hosts where the GPU is shared with a latency-sensitive workload
+      # (unified memory!): exactly one diarization run at a time.
+      DIARIZATION_MAX_CONCURRENCY: "1"
+      # Model download at startup may need to go through a proxy:
+      http_proxy: ${HTTP_PROXY_URL:-}
+      https_proxy: ${HTTP_PROXY_URL:-}
+      HTTP_PROXY: ${HTTP_PROXY_URL:-}
+      HTTPS_PROXY: ${HTTP_PROXY_URL:-}
+      no_proxy: ${NO_PROXY_LIST:-localhost,127.0.0.1}
+      NO_PROXY: ${NO_PROXY_LIST:-localhost,127.0.0.1}
+    volumes:
+      - diarization-hf-cache:/home/ubuntu/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  diarization-hf-cache:
